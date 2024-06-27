@@ -6,8 +6,8 @@ var server = http.createServer(function (request, response) {
     response.writeHead(404);
     response.end();
 });
-server.listen(9001, "0.0.0.0", function () {
-    console.log(new Date() + " Server is listening on port 9001");
+server.listen(9001, "0.0.0.0", function (e) {
+    console.log(new Date() + " Server is listening on port 9001 "+server._connectionKey);
 });
   
 const wsServer = new WebSocketServer({
@@ -19,6 +19,7 @@ let connects=[]
 wsServer.on("request", function (request) {
     var connection = request.accept(null, request.origin);
     console.log(new Date()+","+connection.remoteAddress + " 已经建立连接");
+    console.log(connection)
     connects.push(connection)
     connection.on("message", function (msg) {
         connects.forEach(da=>{
