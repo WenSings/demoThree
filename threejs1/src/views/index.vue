@@ -8,6 +8,27 @@
                 开始游戏
             </div>
         </div>
+        <div v-show="isgameing" class="ui">
+            <div class="mine">
+                <div class="playerMsg">
+                    <span>{{mine.name}}</span>
+                    <div>
+                        <div :style="'width:'+mine.blood+'%'"></div>
+                    </div>
+                    <span class="score">{{mine.blood}}</span>
+                </div>
+                <div class="m-sc">分数：{{mine.score}}</div>
+            </div>
+            <div class="players">
+                <div class="playerMsg" v-for="item in playerMsg">
+                    <span>{{item.name}}</span>
+                    <div>
+                        <div :style="'width:'+item.blood+'%'"></div>
+                    </div>
+                    <span >{{item.score}}</span>
+                </div>
+            </div>
+        </div>
         <div class="zunxin">
             <div :class="doShot?'shot':''"></div>
         </div>
@@ -30,7 +51,8 @@ onMounted(()=>{
       connect_model()
     }
 })
-const ws=new WebSocket('ws://192.168.20.9:9001')
+const ws=new WebSocket('ws://8.138.80.212:9001')
+// const ws=new WebSocket('ws://192.168.20.9:9001')
 
 onUnmounted(()=>{
   window.cancelAnimationFrame(animationId)
@@ -38,9 +60,11 @@ onUnmounted(()=>{
 const loading = ref(0)
 const isgameing=ref(false)
 function startGame(){
-    isgameing.value = true
-    document.getElementById('three').requestPointerLock()
-    eventListener()
+    if(loading.value==100){
+        isgameing.value = true
+        document.getElementById('three').requestPointerLock()
+        eventListener()
+    }
 }
 function init(){
     scene = new THREE.Scene()
@@ -123,14 +147,14 @@ function createMonster(){
     let bodyBox = new CANNON.Body({
         mass: 500,
         position: new CANNON.Vec3(0,15,0),
-        shape:new CANNON.Box(new CANNON.Vec3(0.6,1,0.6)),
+        shape:new CANNON.Box(new CANNON.Vec3(0.51,1.01,0.51)),
         material:humanMaterial
     });
     bodyBox.name='monster'
     monsterGroup.userData = bodyBox;
     world.addBody(bodyBox);
 }
-function createPlayer(){
+function createPlayer(data){
     let man=createCube([1,3,1],'#333')
     let header=createCube([0.5,0.5,0.8],'#999')
     header.position.set(0,0.8,0.5)
@@ -144,6 +168,8 @@ function createPlayer(){
         material:humanMaterial
     });
     huamn.userData=bodyBox
+    huamn.name=data.name
+    bodyBox.nameid=data.name
     bodyBox.name='monster'
     world.addBody(bodyBox);
     return huamn
@@ -165,8 +191,8 @@ function createPhysics(){
     groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     world.addBody(groundBody); 
     cannonDebugger = CannonDebugger(scene, world)
-    const contactMaterial = new CANNON.ContactMaterial(humanMaterial, boxMaterial, {
-        friction:1
+    const contactMaterial = new CANNON.ContactMaterial(humanMaterial, planMaterial, {
+        friction:0
     })
     world.addContactMaterial(contactMaterial)
 }
@@ -178,7 +204,8 @@ const cssLabel=new THREE.Group()
 let world,qiu,body
 let boxMaterial=new CANNON.Material({friction:0.5,restitution:0.3})
 let planMaterial=new CANNON.Material()
-let humanMaterial=new CANNON.Material({friction:0.5,restitution:0.3})
+let humanMaterial=new CANNON.Material({friction:0,restitution:0})
+const mine=ref({})
 function createScene(){
     createPhysics()
     let plan=createCube([500,2,500],'#ffcc00')
@@ -194,15 +221,17 @@ function createScene(){
     let bodyBox = new CANNON.Body({
         mass: 5,
         position: new CANNON.Vec3(0,15,220),
-        shape:new CANNON.Box(new CANNON.Vec3(0.6,1,0.6)),
+        shape:new CANNON.Box(new CANNON.Vec3(0.5,1,0.5)),
         material:humanMaterial
     });
     huamnGroup.userData=bodyBox
     world.addBody(bodyBox);
-    
+    mine.value.name='id_'+(Math.random()*1000).toFixed(0)
+    mine.value.blood=100
+    mine.value.score=0
+    ws.send(JSON.stringify({data:{name:mine.value.name,blood:mine.value.blood,score:mine.value.score,type:'characterMsg'}}))
     let contactNormal = new CANNON.Vec3();
     huamnGroup.userData.addEventListener('collide', (event) => {
-        // co=true
         let contact=event.contact
         if(contact.bi.id == huamnGroup.userData.id) 
             contact.ni.negate(contactNormal);
@@ -212,8 +241,11 @@ function createScene(){
             jump = true;
     })
     huamnGroup.children[1].add(camera)
-    camera.position.set(0,2,-1)
-    camera.lookAt(huamnGroup.position.clone())
+    camera.position.set(0,1.5,-0.2)
+    let capOs=huamnGroup.position.clone()
+    capOs.y+=1
+    capOs.z+=1
+    camera.lookAt(capOs)
 }
 function worldRun(){
     cubeGroup.children.forEach(da=>{
@@ -223,6 +255,7 @@ function worldRun(){
     huamnGroup.position.copy(huamnGroup.userData.position)
     monsterGroup.position.copy(monsterGroup.userData.position)
     huamnGroup.userData.quaternion.copy(huamnGroup.getWorldQuaternion(new THREE.Quaternion()))
+    monsterGroup.userData.quaternion.copy(monsterGroup.getWorldQuaternion(new THREE.Quaternion()))
     let spPos=[]
     sphereGroup.children.forEach(da=>{
         da.position.copy(da.userData.position)
@@ -236,13 +269,14 @@ function worldRun(){
     }else{
         isgameing.value=false
     }
-    ws.send(JSON.stringify({data:{pos:huamnGroup.position,ro:{x:huamnGroup.quaternion.x,y:huamnGroup.quaternion.y,z:huamnGroup.quaternion.z,w:huamnGroup.quaternion.w},type:'human'}}))
-    
+    ws.send(JSON.stringify({data:{name:mine.value.name,pos:huamnGroup.position,ro:{x:huamnGroup.quaternion.x,y:huamnGroup.quaternion.y,z:huamnGroup.quaternion.z,w:huamnGroup.quaternion.w},type:'human'}}))
 }
 let playerChange=[]
+let playerChangeName=[]
 let bullChange=[]
 const otherPlayer=new THREE.Group()
 const otherSphere=new THREE.Group()
+const playerMsg=ref([])
 function connect_model(){
     ws.onmessage=da=>{
         let data=JSON.parse(da.data)
@@ -250,11 +284,13 @@ function connect_model(){
             let ids=playerChange.indexOf(data.id)
             if(ids==-1){
                 playerChange.push(data.id)
-                let player=createPlayer()
+                playerChangeName.push(data.name)
+                let player=createPlayer(data)
                 otherPlayer.add(player)
             }else{
                 let p=data.pos
                 p.y+=0.5
+                playerChangeName[ids]=data.name
                 otherPlayer.children[ids].userData.position.copy(p)
                 otherPlayer.children[ids].position.copy(p)
                 otherPlayer.children[ids].userData.quaternion.copy(new THREE.Quaternion(data.ro.x,data.ro.y,data.ro.z,data.ro.w))
@@ -275,7 +311,26 @@ function connect_model(){
                     da.position.copy(data.pos[i])
                 })
             }
-            console.log(otherSphere)
+        }else if(data.type=='characterMsg'){
+            playerMsg.value=[]
+            data.arr.forEach(da=>{
+                let s=0
+                playerChangeName.forEach((sa,i)=>{
+                    if(sa==da.name){
+                        s=i
+                    }
+                })
+                if(otherPlayer.children.length>0){
+                    if(da.name==otherPlayer.children[s].name){
+                        otherPlayer.children[s].userData.blood=da.blood
+                        otherPlayer.children[s].userData.score=da.score
+                    }
+                }
+                if(da.name==mine.value.name){
+                    mine.value.blood=da.blood
+                }
+                playerMsg.value.push(da)
+            })
         }
     }
 }
@@ -286,7 +341,7 @@ function animotion(){
     if(huamnGroup.userData){
         humanControl()
     }
-    // cannonDebugger.update()//显示物理边框
+    cannonDebugger.update()//显示物理边框
     worldRun()
     renderer.render(scene,camera)
     animationId=window.requestAnimationFrame(animotion);
@@ -330,8 +385,8 @@ function rayDetect(){
         let detect=raycaster.intersectObjects(otherPlayer.children)
         let len=Math.sqrt(dapos.x*dapos.x+dapos.y*dapos.y+dapos.z*dapos.z)
         if(detect.length>0){
-            if(detect[0].distance-0.4<len/60){
-                nPos=nPos.multiplyScalar((detect[0].distance-0.4)*50)
+            if(detect[0].distance-0.05<len/60){
+                nPos=nPos.multiplyScalar((detect[0].distance-0.05)*60)
                 da.userData.velocity.x=nPos.x
                 da.userData.velocity.y=nPos.y
                 da.userData.velocity.z=nPos.z
@@ -358,7 +413,7 @@ function eventListener(){
             cam=!cam
             if(cam){
                 huamnGroup.children[1].add(camera)
-                camera.position.set(0,2,-1)
+                camera.position.set(0,1.5,-0.5)
                 camera.lookAt(huamnGroup.position.clone())
             }else{
                 huamnGroup.children[1].remove(camera)
@@ -386,20 +441,23 @@ function eventListener(){
             sp.castShadow=true
             let ball = new CANNON.Body({
                 mass: 0.1,
-                shape: new CANNON.Sphere(0.2),
+                shape: new CANNON.Sphere(0.05),
                 material:boxMaterial
             });
             let pos=new THREE.Vector3()
             camera.getWorldDirection(pos)
-            humanpos.y+=2.8
+            humanpos.y+=2.3
             ball.position.copy(humanpos)
             ball.velocity.copy(pos.multiplyScalar(350))
             sp.userData=ball
             sphereGroup.add(sp)
             world.addBody(ball)
+            ball.name='ball'
             ball.addEventListener('collide',(e)=>{
                 if(e.body.name=='monster'){
+                    console.log(e.body)
                     let daPos=e.target.position.clone()
+                    daPos=new THREE.Vector3(daPos.x, daPos.y, daPos.z)
                     var canvas = document.createElement('canvas');
                     canvas.width=50
                     canvas.height=50
@@ -413,9 +471,14 @@ function eventListener(){
                     texture.needsUpdate = true;
                     const material = new THREE.SpriteMaterial( { map: texture } );
                     const sprite = new THREE.Sprite( material );
-                    daPos.y+=1
+                    mine.value.score+=1
+                    e.body.blood-=1
+                    ws.send(JSON.stringify({data:{name:mine.value.name,blood:mine.value.blood,score:mine.value.score,type:'characterMsg'}}))
+                    ws.send(JSON.stringify({data:{name:e.body.nameid,blood:e.body.blood,score:e.body.score,type:'characterMsg'}}))
+                    daPos.add(new THREE.Vector3(e.target.velocity.x,e.target.velocity.y,e.target.velocity.z).normalize().multiplyScalar(-1))
                     sprite.position.copy(daPos)
                     cssLabel.add( sprite );
+                    
                     doShot.value=true
                     setTimeout(()=>{
                         doShot.value=false
@@ -446,8 +509,8 @@ document.addEventListener('mousemove', (event) => {
     if(cam&&isgameing.value){
         huamnGroup.rotation.y -= event.movementX / 600;
         camera.rotation.x += event.movementY / 600;
-        let angleMax=Math.PI*(35/180)-Math.PI
-        let angleMin=Math.PI*(-65/180)-Math.PI
+        let angleMax=Math.PI*(45/180)-Math.PI
+        let angleMin=Math.PI*(-85/180)-Math.PI
         if (camera.rotation.x < angleMin) {
             camera.rotation.x = angleMin;
         }
@@ -456,7 +519,6 @@ document.addEventListener('mousemove', (event) => {
         };
     } 
 });
-// window.addEventListener( 'pointermove', onPointerMove );
 
 </script>
 <style lang="scss" scoped>
@@ -508,13 +570,69 @@ document.addEventListener('mousemove', (event) => {
     justify-content: center;
     align-items: center;
     >div{
-        width: 5px;
-        height: 5px;
+        width: 3px;
+        height: 3px;
         border-radius: 3px;
         background-color: #0f0;
     }
     .shot{
         background-color: #f00;
+    }
+}
+.ui{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    .mine{
+        position: absolute;
+        min-width: 240px;
+        height: 50px;
+        top: 0px;
+        left: 10px;
+    }
+    .m-sc{
+        margin-left: 30px;
+        color:#fff
+    }
+    .players{
+        position: absolute;
+        min-width: 240px;
+        height: 550px;
+        top: 20px;
+        right: 20px;
+    }
+    .playerMsg{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        >span{
+            font-size: 16px;
+            width: 80px;
+            text-align: right;
+            color: #fff;
+            text-shadow: #000;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-wrap:nowrap;
+            margin-right: 5px;
+        }
+        .score{
+            text-align: left;
+            margin-left: 5px;
+            overflow:visible;
+        }
+        >div{
+            width: 160px;
+            height: 10px;
+            border-radius: 25px;
+            border: 1px solid #fff;
+            overflow: hidden;
+            background-color: rgb(105, 47, 47);
+            >div{
+                height: 100%;
+                background-color: #f00;
+            }
+        }
     }
 }
 
