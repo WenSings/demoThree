@@ -47,12 +47,12 @@ onMounted(()=>{
     ws.onopen=da=>{
       init()
       createScene()
-      animotion()
+      animation()
       connect_model()
     }
 })
-const ws=new WebSocket('ws://8.138.80.212:9001')
-// const ws=new WebSocket('ws://192.168.20.9:9001')
+// const ws=new WebSocket('ws://8.138.80.212:9001')
+const ws=new WebSocket('ws://192.168.20.9:9001')
 
 onUnmounted(()=>{
   window.cancelAnimationFrame(animationId)
@@ -71,8 +71,6 @@ function init(){
     camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
     renderer = new THREE.WebGLRenderer({
         antialias:true,
-        pixelRatio:'devicePixelRatio',
-        precision:'mediump'
     })
     renderer.setSize(window.innerWidth,window.innerHeight)
     renderer.shadowMap.enabled = true;
@@ -102,8 +100,6 @@ function init(){
     scene.add(cssLabel)
     scene.add(otherPlayer)
     scene.add(otherSphere)
-    // const helper = new THREE.CameraHelper( light.shadow.camera );
-    // scene.add( helper );
 }
 function createCube(size,color){
     const geometry = new THREE.BoxGeometry( size[0], size[1], size[2] ); 
@@ -122,7 +118,7 @@ function createSphere(size,color){
     return sphere
 }
 function createBuilding(){
-    for(let i=0;i<50;i++){
+    for(let i=0;i<150;i++){
         let scale=[Math.random()*50,Math.random()*50,Math.random()*50]
         let pos=[Math.random()*300-150,Math.random()*50+50,Math.random()*300-150]
         let c=createCube(scale,new THREE.Color(Math.random(),Math.random(),Math.random()))
@@ -184,11 +180,12 @@ function createPhysics(){
     world.broadphase = new CANNON.SAPBroadphase(world)
     let groundBody  = new CANNON.Body({ 
         mass: 0, 
-        shape: new CANNON.Plane(),
+        position: new CANNON.Vec3(0,-1,0),
+        shape: new CANNON.Box(new CANNON.Vec3(250,1,250)),
         material:planMaterial
     });
     groundBody.position.y=0
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    groundBody.quaternion.setFromEuler(0, 0, 0);
     world.addBody(groundBody); 
     cannonDebugger = CannonDebugger(scene, world)
     const contactMaterial = new CANNON.ContactMaterial(humanMaterial, planMaterial, {
@@ -211,7 +208,7 @@ function createScene(){
     let plan=createCube([500,2,500],'#ffcc00')
     plan.position.y=-1
     scene.add(plan)
-    // createBuilding()
+    createBuilding()
     createMonster()
     let man=createCube([1,2,1],'#333')
     let header=createCube([0.5,0.5,0.8],'#999')
@@ -335,7 +332,7 @@ function connect_model(){
     }
 }
 let animationId=''
-function animotion(){
+function animation(){
     rayDetect()
     world.step(1/60);
     if(huamnGroup.userData){
@@ -344,7 +341,7 @@ function animotion(){
     cannonDebugger.update()//显示物理边框
     worldRun()
     renderer.render(scene,camera)
-    animationId=window.requestAnimationFrame(animotion);
+    animationId=window.requestAnimationFrame(animation);
 }
 let Aa,Dd,Ww,Ss,jump,cam=true,cc=false,co
 const speed=25
