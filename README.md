@@ -24,3 +24,5 @@ npm install
 ```sh
 npm run dev
 ```
+
+需要进入views/index 文件修改ws地址

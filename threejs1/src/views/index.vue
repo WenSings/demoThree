@@ -52,7 +52,9 @@ onMounted(()=>{
     }
 })
 // const ws=new WebSocket('ws://8.138.80.212:9001')
-const ws=new WebSocket('ws://192.168.20.9:9001')
+
+//修改为websocket地址
+const ws=new WebSocket('ws://127.0.0.1:9001')
 
 onUnmounted(()=>{
   window.cancelAnimationFrame(animationId)
@@ -348,6 +350,7 @@ const speed=25
 function humanControl(){
     let pos=new THREE.Vector3()
     huamnGroup.getWorldDirection(pos)
+    console.log(huamnGroup.position)
     let player=huamnGroup.userData
     let newpos=new THREE.Vector3()
     if(Aa){
@@ -372,6 +375,11 @@ function humanControl(){
     }
     player.velocity.x=newpos.x
     player.velocity.z=newpos.z
+    if(huamnGroup.position.y<-50){
+        player.position.set(0,50,0)
+        player.velocity.x=0
+        player.velocity.z=0
+    }
 }
 function rayDetect(){
     sphereGroup.children.forEach(da=>{
